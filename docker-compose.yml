@@ -40,7 +40,7 @@ services:
     ports:
       - "5434:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - acme_postgres_data:/var/lib/postgresql/data
 
   redis:
     image: redis:7
@@ -48,8 +48,8 @@ services:
     ports:
       - "6378:6379"
     volumes:
-      - redis_data:/data
+      - acme_redis_data:/data
 
 volumes:
-  postgres_data:
-  redis_data:
+  acme_postgres_data:
+  acme_redis_data:

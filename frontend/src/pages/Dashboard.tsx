@@ -23,7 +23,7 @@ const Dashboard = () => {
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <h1 className="text-2xl font-bold">Product Importer Dashboard</h1>
+            <h1 className="text-2xl font-bold">ACME Product Importer</h1>
           </div>
         </div>
       </div>

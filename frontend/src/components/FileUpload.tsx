@@ -313,7 +313,7 @@ const FileUpload = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Import Tasks</CardTitle>
+          <CardTitle>All Tasks</CardTitle>
           <CardDescription>
             Previously uploaded import jobs. Click a job to view progress, or retry failed jobs.
           </CardDescription>
