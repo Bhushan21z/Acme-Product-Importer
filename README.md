@@ -1,8 +1,6 @@
-🚀 ACME Product Importer — README.md
+# ACME Product Importer 
 
 A complete, scalable, production-grade web application that allows users to upload large CSV files (up to 500,000 products), process them asynchronously, manage products, configure webhooks, and track background jobs — built with Flask, Celery, Redis, PostgreSQL, Docker, and React.
-
-📌 Live Demo
 
 👉 Deployed URL: https://acme-product-importer-a2611d46.vercel.app/
 
@@ -21,7 +19,7 @@ A complete, scalable, production-grade web application that allows users to uplo
 - [Folder Structure](#-folder-structure)
 - [Future Enhancements](#-future-enhancements)
 
-🧩 Overview
+## Overview
 
 ACME Product Importer is designed to efficiently ingest massive CSV files into a PostgreSQL database using chunked processing and asynchronous Celery workers.
 
@@ -36,7 +34,7 @@ The goal is to build a highly scalable, responsive, and real-world ready system 
 
 This project satisfies all assignment requirements, and is deployed publicly for easy review.
 
-🛠 Features
+## Features
 
 **✅ Large CSV File Upload (up to 500,000 rows)**
 - Upload via UI
@@ -83,12 +81,12 @@ This project satisfies all assignment requirements, and is deployed publicly for
 - Test webhook button (sends test payload + shows response)
 - Non-blocking async webhook delivery in background worker
 
-🧱 Architecture
+## Architecture
 
 ![alt text](image.png)
 
 
-⚙️ Tech Stack
+## Tech Stack
 
 **Backend**
 - Python
@@ -110,7 +108,7 @@ This project satisfies all assignment requirements, and is deployed publicly for
 - Host bridge networking
 - Public HTTPS-secured deployment
 
-✔️ Functional Requirements Coverage
+## Functional Requirements Coverage
 
 | Requirement | Status |
 |-------------|--------|
@@ -148,7 +146,7 @@ This project satisfies all assignment requirements, and is deployed publicly for
 | Infrastructure ready (Docker) | ✔️ Completed |
 | Long-running tasks (Celery) | ✔️ Completed |
 
-🔍 How It Works
+## How It Works
 
 **1. User uploads CSV**
 - → API stores file
@@ -168,7 +166,7 @@ This project satisfies all assignment requirements, and is deployed publicly for
 - → Webhook event `import.completed` triggered
 - → File auto-deleted
 
-***API Endpoints*** 
+## API Endpoints
 
 **CSV Import**
 - `POST /upload`
@@ -191,7 +189,7 @@ This project satisfies all assignment requirements, and is deployed publicly for
 - `POST /webhooks/{id}/test`
 
 
-***Webhook System***
+## Webhook System
 
 **Events supported**
 - `product.created`
@@ -205,7 +203,7 @@ This project satisfies all assignment requirements, and is deployed publicly for
 - Retries on failure
 - Test webhook endpoint for validation
 
-🐳 Running Locally via Docker
+## 🐳 Running Locally via Docker
 
 ```bash
 docker-compose up --build -d
