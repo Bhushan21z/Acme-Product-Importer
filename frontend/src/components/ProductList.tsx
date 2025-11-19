@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -11,16 +17,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Plus, Search, Trash2, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ProductDialog from "./ProductDialog";
@@ -37,48 +33,47 @@ interface Product {
 
 const ProductList = () => {
   const { toast } = useToast();
+
   const [products, setProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [showDeleteAll, setShowDeleteAll] = useState(false);
+  const [totalPages, setTotalPages] = useState(1);
+
   const [showProductDialog, setShowProductDialog] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  
+
   const itemsPerPage = 50;
 
+  // Fetch on mount, search change, or page change
   useEffect(() => {
     fetchProducts();
-  }, []);
-
-  useEffect(() => {
-    const filtered = products.filter(product => {
-      const search = searchTerm.toLowerCase();
-      return (
-        product.name?.toLowerCase().includes(search) ||
-        product.sku?.toLowerCase().includes(search) ||
-        product.description?.toLowerCase().includes(search)
-      );
-    });
-    setFilteredProducts(filtered);
-    setCurrentPage(1);
-  }, [searchTerm, products]);
+  }, [currentPage, searchTerm]);
 
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/products`);
-      if (!response.ok) throw new Error("Failed to fetch products");
-      
-      const data = await response.json();
+      const params = new URLSearchParams({
+        name: searchTerm,
+        sku: searchTerm,
+        description: searchTerm,
+        page: currentPage.toString(),
+        limit: itemsPerPage.toString(),
+      });
+
+      const res = await fetch(`${API_BASE_URL}/products?${params}`);
+
+      if (!res.ok) throw new Error("Unable to fetch products");
+
+      const data = await res.json();
       setProducts(data.products || []);
-    } catch (error) {
-      console.error("Error fetching products:", error);
+      setTotalPages(Math.ceil(data.total / itemsPerPage));
+    } catch (e) {
       toast({
         title: "Error",
         description: "Failed to load products",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -86,20 +81,44 @@ const ProductList = () => {
   };
 
   const handleDeleteAll = async () => {
-    // This would call your backend bulk delete endpoint
-    toast({
-      title: "Feature coming soon",
-      description: "Bulk delete endpoint needs to be implemented in backend"
-    });
-    setShowDeleteAll(false);
+    if (!confirm("Are you sure you want to delete ALL products?")) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/products`, { method: "DELETE" });
+
+      if (!res.ok) throw new Error("Bulk delete failed");
+
+      toast({ title: "Success", description: "All products deleted" });
+      fetchProducts();
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Bulk delete failed",
+        variant: "destructive",
+      });
+    }
   };
 
-  const paginatedProducts = filteredProducts.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const handleDeleteProduct = async (id: number) => {
+    if (!confirm("Delete this product?")) return;
 
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+    try {
+      const res = await fetch(`${API_BASE_URL}/products/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) throw new Error("Delete failed");
+
+      toast({ title: "Deleted", description: "Product removed" });
+      fetchProducts();
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Unable to delete product",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <Card>
@@ -108,47 +127,51 @@ const ProductList = () => {
           <div>
             <CardTitle>Product Management</CardTitle>
             <CardDescription>
-              View and manage your product catalog ({products.length} total products)
+              Manage your product catalog ({products.length} items on this page)
             </CardDescription>
           </div>
+
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={fetchProducts}
-              disabled={loading}
-            >
+            <Button variant="outline" size="icon" onClick={fetchProducts} disabled={loading}>
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             </Button>
+
             <Button
               variant="destructive"
-              onClick={() => setShowDeleteAll(true)}
               disabled={products.length === 0}
+              onClick={handleDeleteAll}
             >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete All
+              <Trash2 className="w-4 h-4 mr-2" /> Delete All
             </Button>
-            <Button onClick={() => {
-              setSelectedProduct(null);
-              setShowProductDialog(true);
-            }}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Product
+
+            <Button
+              onClick={() => {
+                setSelectedProduct(null);
+                setShowProductDialog(true);
+              }}
+            >
+              <Plus className="w-4 h-4 mr-2" /> Add Product
             </Button>
           </div>
         </div>
       </CardHeader>
+
       <CardContent className="space-y-4">
+        {/* Search Bar */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
             placeholder="Search by SKU, name, or description..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
             className="pl-10"
           />
         </div>
 
+        {/* Table */}
         <div className="border rounded-lg">
           <Table>
             <TableHeader>
@@ -160,27 +183,28 @@ const ProductList = () => {
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
+
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8">
+                  <TableCell colSpan={5} className="py-8 text-center">
                     <div className="flex items-center justify-center gap-2">
                       <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                      Loading products...
+                      Loading...
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : paginatedProducts.length === 0 ? (
+              ) : products.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    {searchTerm ? "No products found matching your search" : "No products available"}
+                  <TableCell className="py-8 text-center text-muted-foreground" colSpan={5}>
+                    {searchTerm ? "No results found" : "No products available"}
                   </TableCell>
                 </TableRow>
               ) : (
-                paginatedProducts.map((product) => (
+                products.map((product) => (
                   <TableRow key={product.id}>
-                    <TableCell className="font-mono text-sm">{product.sku}</TableCell>
-                    <TableCell className="font-medium">{product.name}</TableCell>
+                    <TableCell className="font-mono">{product.sku}</TableCell>
+                    <TableCell>{product.name}</TableCell>
                     <TableCell className="max-w-md truncate text-muted-foreground">
                       {product.description}
                     </TableCell>
@@ -189,16 +213,26 @@ const ProductList = () => {
                         {product.active ? "Active" : "Inactive"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+
+                    <TableCell className="text-right space-x-2">
                       <Button
-                        variant="ghost"
                         size="sm"
+                        variant="ghost"
                         onClick={() => {
                           setSelectedProduct(product);
                           setShowProductDialog(true);
                         }}
                       >
                         Edit
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-red-500"
+                        onClick={() => handleDeleteProduct(product.id)}
+                      >
+                        Delete
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -208,52 +242,28 @@ const ProductList = () => {
           </Table>
         </div>
 
+        {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
-              {Math.min(currentPage * itemsPerPage, filteredProducts.length)} of{" "}
-              {filteredProducts.length} products
-            </div>
+          <div className="flex items-center justify-between text-sm">
+            <span>
+              Page {currentPage} of {totalPages}
+            </span>
+
             <div className="flex gap-2">
               <Button
-                variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                variant="outline"
                 disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => p - 1)}
               >
                 Previous
               </Button>
-              <div className="flex items-center gap-1">
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
-                  
-                  return (
-                    <Button
-                      key={pageNum}
-                      variant={currentPage === pageNum ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setCurrentPage(pageNum)}
-                    >
-                      {pageNum}
-                    </Button>
-                  );
-                })}
-              </div>
+
               <Button
-                variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                variant="outline"
                 disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => p + 1)}
               >
                 Next
               </Button>
@@ -262,27 +272,7 @@ const ProductList = () => {
         )}
       </CardContent>
 
-      <AlertDialog open={showDeleteAll} onOpenChange={setShowDeleteAll}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete All Products?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete all {products.length} products
-              from the database.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteAll}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete All
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
+      {/* Product Create / Edit Dialog */}
       <ProductDialog
         open={showProductDialog}
         onOpenChange={setShowProductDialog}

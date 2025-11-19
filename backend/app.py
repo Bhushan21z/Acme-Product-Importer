@@ -1,6 +1,7 @@
 import os
 import uuid
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from db import Base, engine, SessionLocal
 from models import Product
 from tasks import process_csv_job, redis, redis_key
@@ -10,10 +11,11 @@ from config import UPLOAD_FOLDER, REDIS_URL
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "*"}})
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 # ensure tables exist
-Base.metadata.drop_all(bind=engine)
+# Base.metadata.drop_all(bind=engine)
 Base.metadata.create_all(bind=engine)
 
 # health
@@ -81,12 +83,130 @@ def get_progress():
 
 # products listing (same as before)
 @app.get("/products")
-def get_products():
+def list_products():
     db = SessionLocal()
     try:
-        products = db.query(Product).all()
-        results = [{"id": p.id, "name": p.name, "sku": p.sku, "description": p.description, "active": p.active} for p in products]
-        return jsonify({"count": len(results), "products": results}), 200
+        # Query params
+        page = int(request.args.get("page", 1))
+        limit = int(request.args.get("limit", 50))
+
+        sku = request.args.get("sku")
+        name = request.args.get("name")
+        description = request.args.get("description")
+        active = request.args.get("active")  # true/false
+
+        query = db.query(Product)
+
+        if sku:
+            query = query.filter(Product.sku.ilike(f"%{sku}%"))
+        if name:
+            query = query.filter(Product.name.ilike(f"%{name}%"))
+        if description:
+            query = query.filter(Product.description.ilike(f"%{description}%"))
+        if active in ["true", "false"]:
+            query = query.filter(Product.active == (active == "true"))
+
+        total = query.count()
+        products = query.offset((page - 1) * limit).limit(limit).all()
+
+        return jsonify({
+            "page": page,
+            "limit": limit,
+            "total": total,
+            "products": [
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "sku": p.sku,
+                    "description": p.description,
+                    "active": p.active
+                }
+                for p in products
+            ]
+        }), 200
+    finally:
+        db.close()
+
+@app.post("/products")
+def create_product():
+    data = request.json
+    required = ["name", "sku"]
+
+    if any(field not in data for field in required):
+        return jsonify({"error": "name & sku required"}), 400
+
+    db = SessionLocal()
+    try:
+        product = Product(
+            name=data["name"],
+            sku=data["sku"],
+            description=data.get("description", ""),
+            active=data.get("active", True)
+        )
+        db.add(product)
+        db.commit()
+        db.refresh(product)
+
+        return jsonify({"message": "Product created", "product": {
+            "id": product.id,
+            "name": product.name,
+            "sku": product.sku,
+            "description": product.description,
+            "active": product.active
+        }}), 201
+    except Exception as e:
+        db.rollback()
+        return jsonify({"error": str(e)}), 400
+    finally:
+        db.close()
+
+@app.put("/products/<int:product_id>")
+def update_product(product_id):
+    data = request.json
+    db = SessionLocal()
+    try:
+        product = db.query(Product).filter_by(id=product_id).first()
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
+
+        product.name = data.get("name", product.name)
+        product.sku = data.get("sku", product.sku)
+        product.description = data.get("description", product.description)
+        product.active = data.get("active", product.active)
+
+        db.commit()
+        db.refresh(product)
+
+        return jsonify({"message": "Product updated"}), 200
+
+    except Exception as e:
+        db.rollback()
+        return jsonify({"error": str(e)}), 400
+    finally:
+        db.close()
+
+@app.delete("/products/<int:product_id>")
+def delete_product(product_id):
+    db = SessionLocal()
+    try:
+        product = db.query(Product).filter_by(id=product_id).first()
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
+
+        db.delete(product)
+        db.commit()
+
+        return jsonify({"message": "Product deleted"}), 200
+    finally:
+        db.close()
+
+@app.delete("/products")
+def delete_all_products():
+    db = SessionLocal()
+    try:
+        db.query(Product).delete()
+        db.commit()
+        return jsonify({"message": "All products deleted"}), 200
     finally:
         db.close()
 

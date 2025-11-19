@@ -6,3 +6,4 @@ python-dotenv
 celery[redis]
 redis
 sqlalchemy-utils
+flask-cors
