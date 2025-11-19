@@ -1,0 +1,11 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    container_name: acme_backend
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend/uploads:/app/uploads
+    restart: unless-stopped
