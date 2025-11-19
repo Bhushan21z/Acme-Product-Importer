@@ -1,21 +1,28 @@
-# backend/app.py
 import os
 from flask import Flask, request, jsonify
+from db import Base, engine
+from models import Product
 
 UPLOAD_FOLDER = "uploads"
 
 app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
-# Create uploads folder if missing
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-@app.route("/health", methods=["GET"])
+# Create tables on startup (temporary; Alembic later)
+Base.metadata.create_all(bind=engine)
+
+
+@app.get("/health")
 def health():
     return {"status": "ok"}, 200
 
 
-@app.route("/upload", methods=["POST"])
+# ---------------------------------------------
+# File Upload Endpoint (previous step)
+# ---------------------------------------------
+@app.post("/upload")
 def upload_csv():
     if "file" not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
@@ -28,7 +35,6 @@ def upload_csv():
     if not file.filename.lower().endswith(".csv"):
         return jsonify({"error": "File must be a CSV"}), 400
 
-    # Save file
     filepath = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
     file.save(filepath)
 
