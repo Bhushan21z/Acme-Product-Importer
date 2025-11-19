@@ -1,5 +1,4 @@
 version: "3.9"
-
 services:
   backend:
     build: ./backend
@@ -10,8 +9,24 @@ services:
       - ./backend/uploads:/app/uploads
     depends_on:
       - db
+      - redis
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/productdb
+      - REDIS_URL=redis://redis:6379/0
+    restart: unless-stopped
+
+  worker:
+    build: ./backend
+    container_name: acme_worker
+    command: ["celery", "-A", "tasks.celery_app", "worker", "--loglevel=info", "--concurrency=1"]
+    volumes:
+      - ./backend/uploads:/app/uploads
+    depends_on:
+      - db
+      - redis
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/productdb
+      - REDIS_URL=redis://redis:6379/0
     restart: unless-stopped
 
   db:
@@ -27,5 +42,14 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  redis:
+    image: redis:7
+    container_name: acme_redis
+    ports:
+      - "6378:6379"
+    volumes:
+      - redis_data:/data
+
 volumes:
   postgres_data:
+  redis_data:
