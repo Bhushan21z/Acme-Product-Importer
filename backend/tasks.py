@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import insert
 from config import REDIS_URL, CHUNK_SIZE, UPLOAD_FOLDER, DATABASE_URL
 from db import SessionLocal, engine
 from models import Product
+from webhooks import trigger_event
 
 # Celery
 celery_app = Celery("tasks", broker=REDIS_URL, backend=REDIS_URL)
@@ -86,6 +87,8 @@ def process_csv_job(self, job_id, filename):
                  total="0",
                  last_message="queued",
                  error="")
+
+    trigger_event("csv.started", {"job_id": job_id, "filename": filename})
 
     if not os.path.exists(filepath):
         set_progress(job_id, status="failed", last_message="file not found", error="file not found")
@@ -180,10 +183,22 @@ def process_csv_job(self, job_id, filename):
             # non-fatal
             set_progress(job_id, last_message="import complete, failed to delete file")
 
+        trigger_event("csv.completed", {
+            "job_id": job_id,
+            "filename": filename,
+            "processed": processed,
+            "total": total
+        })
+
         return {"status": "complete", "processed": processed}
 
     except Exception as e:
         db.rollback()
+        trigger_event("csv.failed", {
+            "job_id": job_id,
+            "filename": filename,
+            "error": str(e)
+        })
         set_progress(job_id, status="failed", last_message="unexpected error", error=str(e))
         raise
     finally:
