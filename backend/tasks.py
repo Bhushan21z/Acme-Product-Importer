@@ -3,14 +3,13 @@ import csv
 import uuid
 import tempfile
 import shutil
+import time
 from celery import Celery
 from redis import Redis
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy import select
 from config import REDIS_URL, CHUNK_SIZE, UPLOAD_FOLDER, DATABASE_URL
 from db import SessionLocal, engine
 from models import Product
-from sqlalchemy import Table, MetaData
 
 # Celery
 celery_app = Celery("tasks", broker=REDIS_URL, backend=REDIS_URL)
@@ -24,10 +23,15 @@ def redis_key(job_id):
 
 def set_progress(job_id, **kwargs):
     key = redis_key(job_id)
+    # add updated_at automatically
+    if "updated_at" not in kwargs:
+        kwargs["updated_at"] = str(int(time.time()))
     redis.hset(key, mapping=kwargs)
 
 def update_progress_inc(job_id, field, n=1):
     redis.hincrby(redis_key(job_id), field, n)
+    # update timestamp
+    redis.hset(redis_key(job_id), "updated_at", str(int(time.time())))
 
 def get_progress(job_id):
     data = redis.hgetall(redis_key(job_id))
@@ -90,9 +94,13 @@ def process_csv_job(self, job_id, filename):
     # Count total rows (excluding header) for accurate progress
     try:
         with open(filepath, newline="", encoding="utf-8") as f:
-            total = sum(1 for _ in f) - 1
-            if total < 0:
-                total = 0
+            reader = csv.DictReader(f)
+            total = 0
+            for row in reader:
+                name = (row.get("name") or "").strip()
+                sku = (row.get("sku") or "").strip()
+                if name and sku:
+                    total += 1
     except Exception as e:
         set_progress(job_id, status="failed", last_message="count failed", error=str(e))
         return {"error": str(e)}
