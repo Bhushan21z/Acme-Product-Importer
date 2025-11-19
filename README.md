@@ -203,6 +203,15 @@ This project satisfies all assignment requirements, and is deployed publicly for
 - Retries on failure
 - Test webhook endpoint for validation
 
+## AI Used
+
+**Chat Gpt** ***(for design and backend)***
+👉 Chat URL: https://chatgpt.com/share/691dd40d-c0a4-800b-8557-0d0f2009d44c
+
+**Deepseek**
+
+**Lovable** ***(for frontend)***
+
 ## 🐳 Running Locally via Docker
 
 ```bash
