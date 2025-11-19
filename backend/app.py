@@ -29,6 +29,7 @@ JOBS_SET = "import_jobs"
 def health():
     return {"status": "ok"}, 200
 
+
 # upload -> enqueue job
 @app.post("/upload")
 def upload_csv():
@@ -74,6 +75,7 @@ def upload_csv():
 
     return jsonify({"message": "file uploaded", "filename": unique_name, "job_id": job_id}), 202
 
+
 # progress route to return redis data
 @app.get("/progress")
 def get_progress():
@@ -98,6 +100,7 @@ def get_progress():
         percent = round((processed / total) * 100, 2)
     data["percent"] = percent
     return jsonify(data), 200
+
 
 # list all scheduled import tasks
 @app.get("/scheduled-tasks")
@@ -125,6 +128,7 @@ def list_scheduled_tasks():
     # sort by created_at desc
     tasks.sort(key=lambda x: x.get("created_at", 0), reverse=True)
     return jsonify({"tasks": tasks}), 200
+
 
 # single task info (alias for progress but returns consistent structure)
 @app.get("/task/<job_id>")
@@ -160,6 +164,7 @@ def get_task(job_id: str):
     }
     return jsonify(resp), 200
 
+
 # retry a failed job
 @app.post("/retry/<job_id>")
 def retry_job(job_id: str):
@@ -191,6 +196,7 @@ def retry_job(job_id: str):
     # re-enqueue
     process_csv_job.delay(job_id, filename)
     return jsonify({"message": "retry queued", "job_id": job_id}), 202
+
 
 # products listing (same as before)
 @app.get("/products")
@@ -238,6 +244,7 @@ def list_products():
     finally:
         db.close()
 
+
 @app.post("/products")
 def create_product():
     data = request.json
@@ -271,6 +278,7 @@ def create_product():
     finally:
         db.close()
 
+
 @app.put("/products/<int:product_id>")
 def update_product(product_id):
     data = request.json
@@ -296,6 +304,7 @@ def update_product(product_id):
     finally:
         db.close()
 
+
 @app.delete("/products/<int:product_id>")
 def delete_product(product_id):
     db = SessionLocal()
@@ -310,6 +319,7 @@ def delete_product(product_id):
         return jsonify({"message": "Product deleted"}), 200
     finally:
         db.close()
+
 
 @app.delete("/products")
 def delete_all_products():
@@ -395,6 +405,7 @@ def test_webhook(wid):
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

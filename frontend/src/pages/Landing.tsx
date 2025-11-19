@@ -11,7 +11,7 @@ const Landing = () => {
         <div className="max-w-4xl mx-auto text-center space-y-8">
           <div className="space-y-4 animate-in fade-in duration-700">
             <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
-              Product Importer
+              ACME Product Importer
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               Efficiently import, manage, and sync hundreds of thousands of products with ease.
