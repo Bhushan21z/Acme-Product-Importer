@@ -7,6 +7,8 @@ from db import Base, engine, SessionLocal
 from models import Product
 from tasks import process_csv_job, redis, redis_key, set_progress
 from config import UPLOAD_FOLDER, REDIS_URL
+from webhooks import redis as whr, WEBHOOK_SET
+from webhooks import trigger_event
 
 # create uploads folder
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -16,7 +18,7 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 # ensure tables exist
-# Base.metadata.drop_all(bind=engine)
+Base.metadata.drop_all(bind=engine)
 Base.metadata.create_all(bind=engine)
 
 # Redis set name for jobs
@@ -57,6 +59,11 @@ def upload_csv():
         "created_at": str(now),
         "updated_at": str(now),
         "retries": "0"
+    })
+
+    trigger_event("csv.uploaded", {
+        "job_id": job_id,
+        "filename": unique_name
     })
 
     # add to jobs set so we can list later
@@ -313,6 +320,81 @@ def delete_all_products():
         return jsonify({"message": "All products deleted"}), 200
     finally:
         db.close()
+
+# WEBHOOKS
+# CREATE WEBHOOK
+@app.post("/webhooks")
+def create_webhook():
+    data = request.json
+    url = data.get("url")
+    events = ",".join(data.get("events", []))
+    enabled = "true" if data.get("enabled", True) else "false"
+
+    if not url:
+        return jsonify({"error": "url required"}), 400
+
+    wid = uuid.uuid4().hex
+
+    whr.sadd(WEBHOOK_SET, wid)
+    whr.hset(f"webhook:{wid}", mapping={
+        "url": url,
+        "events": events,
+        "enabled": enabled
+    })
+
+    return jsonify({"id": wid}), 201
+
+
+# LIST WEBHOOKS
+@app.get("/webhooks")
+def list_webhooks():
+    ids = whr.smembers(WEBHOOK_SET)
+    hooks = []
+
+    for wid in ids:
+        data = whr.hgetall(f"webhook:{wid}")
+        if data:
+            hooks.append({ "id": wid, **data })
+
+    return jsonify(hooks), 200
+
+
+# DELETE WEBHOOK
+@app.delete("/webhooks/<wid>")
+def delete_webhook(wid):
+    whr.srem(WEBHOOK_SET, wid)
+    whr.delete(f"webhook:{wid}")
+    return jsonify({"message": "deleted"}), 200
+
+
+# ENABLE/DISABLE
+@app.post("/webhooks/<wid>/toggle")
+def toggle_webhook(wid):
+    current = whr.hget(f"webhook:{wid}", "enabled")
+    if not current:
+        return jsonify({"error": "not found"}), 404
+
+    new_value = "false" if current == "true" else "true"
+    whr.hset(f"webhook:{wid}", "enabled", new_value)
+
+    return jsonify({"enabled": new_value}), 200
+
+
+# TEST WEBHOOK
+@app.post("/webhooks/<wid>/test")
+def test_webhook(wid):
+    hook = whr.hgetall(f"webhook:{wid}")
+    if not hook:
+        return jsonify({"error": "not found"}), 404
+
+    try:
+        r = requests.post(hook["url"], json={"event": "test.webhook"}, timeout=3)
+        return jsonify({
+            "status": r.status_code,
+            "ok": r.ok
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
